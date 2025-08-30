@@ -571,8 +571,8 @@ function App() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select a plan</option>
-                    <option value="starter">Starter - £29/month</option>
-                    <option value="pro">Pro - £99/month</option>
+                    <option value="starter">Starter - £15/month</option>
+                    <option value="pro">Pro - £80/month</option>
                     <option value="enterprise">Enterprise - £299/month</option>
                   </select>
                 </div>
