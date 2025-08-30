@@ -1,37 +1,60 @@
-from fastapi import FastAPI, HTTPException, Depends
+import os
+import uuid
+import logging
+from datetime import datetime, timezone
+from typing import List, Optional
+
+# ---- optional local .env loading (harmless on Render if not installed) ----
+try:
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()
+except Exception:
+    pass
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorClient
-from typing import List, Optional
-import os
-from datetime import datetime, timezone
-import uuid
-import logging
+from pymongo.errors import DuplicateKeyError  # motor raises PyMongo errors
 
-# Configure logging
+# ---------------------------------------------------------------------------
+
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("smsdigi-api")
 
 app = FastAPI(title="SMS Marketing SaaS API")
 
-# CORS configuration
+# ----- Config (env vars) ----------------------------------------------------
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017/")
+DB_NAME = os.getenv("DB_NAME", "sms")  # set this in Render to your chosen DB
+# Comma-separated list, e.g. "https://smsdigi.com,https://www.smsdigi.com"
+CORS_ORIGINS_ENV = os.getenv("CORS_ORIGINS", "")
+
+# Parse CORS origins from env, fallback to strict production origins;
+# Render/Vercel preview URLs covered by regex below.
+if CORS_ORIGINS_ENV.strip():
+    ALLOW_ORIGINS = [o.strip() for o in CORS_ORIGINS_ENV.split(",") if o.strip()]
+else:
+    ALLOW_ORIGINS = [
+        "https://smsdigi.com",
+        "https://www.smsdigi.com",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOW_ORIGINS,
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# MongoDB connection
-MONGO_URL = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/')
-DB_NAME = os.environ.get('DB_NAME', 'sms_marketing_saas')
-
+# ----- DB -------------------------------------------------------------------
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
-# Pydantic models
+# ----- Models ---------------------------------------------------------------
 class ContactForm(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
@@ -47,14 +70,27 @@ class Newsletter(BaseModel):
     email: str
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
-# Helper functions
-def prepare_for_mongo(data):
-    """Convert data for MongoDB storage"""
-    if isinstance(data, dict):
-        return {k: v for k, v in data.items() if k != '_id'}
-    return data.dict(exclude={'_id'}) if hasattr(data, 'dict') else data
+# ----- Helpers --------------------------------------------------------------
+def strip_mongo_id(doc: dict) -> dict:
+    """Remove internal _id so Pydantic models accept the dict."""
+    if not doc:
+        return doc
+    doc = dict(doc)
+    doc.pop("_id", None)
+    return doc
 
-# Routes
+# Ensure indexes (runs once on startup)
+@app.on_event("startup")
+async def ensure_indexes() -> None:
+    try:
+        await db.command("ping")
+        # unique email for newsletter
+        await db.newsletter.create_index("email", unique=True)
+        logger.info("Startup: DB connected and indexes ensured.")
+    except Exception as e:
+        logger.exception(f"Startup checks failed: {e}")
+
+# ----- Routes ---------------------------------------------------------------
 @app.get("/")
 async def root():
     return {"message": "SMS Marketing SaaS API is running"}
@@ -62,7 +98,6 @@ async def root():
 @app.get("/api/health")
 async def health_check():
     try:
-        # Test database connection
         await db.command("ping")
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
@@ -72,50 +107,45 @@ async def health_check():
 @app.post("/api/contact", response_model=ContactForm)
 async def submit_contact_form(contact: ContactForm):
     try:
-        contact_dict = prepare_for_mongo(contact)
-        await db.contacts.insert_one(contact_dict)
+        await db.contacts.insert_one(contact.model_dump())
         logger.info(f"New contact form submitted: {contact.email}")
         return contact
     except Exception as e:
-        logger.error(f"Error submitting contact form: {e}")
+        logger.exception(f"Error submitting contact form: {e}")
         raise HTTPException(status_code=500, detail="Failed to submit contact form")
 
 @app.post("/api/newsletter", response_model=Newsletter)
 async def subscribe_newsletter(newsletter: Newsletter):
     try:
-        # Check if email already exists
-        existing = await db.newsletter.find_one({"email": newsletter.email})
-        if existing:
-            raise HTTPException(status_code=400, detail="Email already subscribed")
-        
-        newsletter_dict = prepare_for_mongo(newsletter)
-        await db.newsletter.insert_one(newsletter_dict)
+        # Rely on unique index; catch duplicates cleanly
+        await db.newsletter.insert_one(newsletter.model_dump())
         logger.info(f"New newsletter subscription: {newsletter.email}")
         return newsletter
-    except HTTPException:
-        raise
+    except DuplicateKeyError:
+        raise HTTPException(status_code=400, detail="Email already subscribed")
     except Exception as e:
-        logger.error(f"Error subscribing to newsletter: {e}")
+        logger.exception(f"Error subscribing to newsletter: {e}")
         raise HTTPException(status_code=500, detail="Failed to subscribe to newsletter")
 
 @app.get("/api/contacts", response_model=List[ContactForm])
 async def get_contacts():
     try:
         contacts = await db.contacts.find().to_list(length=None)
-        return [ContactForm(**contact) for contact in contacts]
+        return [ContactForm(**strip_mongo_id(c)) for c in contacts]
     except Exception as e:
-        logger.error(f"Error fetching contacts: {e}")
+        logger.exception(f"Error fetching contacts: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch contacts")
 
 @app.get("/api/subscribers", response_model=List[Newsletter])
 async def get_subscribers():
     try:
         subscribers = await db.newsletter.find().to_list(length=None)
-        return [Newsletter(**subscriber) for subscriber in subscribers]
+        return [Newsletter(**strip_mongo_id(s)) for s in subscribers]
     except Exception as e:
-        logger.error(f"Error fetching subscribers: {e}")
+        logger.exception(f"Error fetching subscribers: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch subscribers")
 
+# ----- Local dev entry ------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8001")))
