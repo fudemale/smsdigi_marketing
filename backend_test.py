@@ -73,7 +73,9 @@ class BackendTester:
                 'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers')
             }
             
-            if cors_headers['Access-Control-Allow-Origin'] == '*':
+            # CORS is working if we get back the origin we sent or '*'
+            origin_header = cors_headers['Access-Control-Allow-Origin']
+            if origin_header in ['*', 'https://example.com']:
                 self.log_test("CORS Headers", True, "CORS headers properly configured", cors_headers)
                 return True
             else:
