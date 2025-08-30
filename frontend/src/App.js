@@ -693,7 +693,7 @@ function App() {
           
           <div className="border-t border-gray-800 mt-8 pt-8 text-center">
             <p className="text-gray-400">
-              © 2024 SMSFlow. All rights reserved. Built with ❤️ for modern businesses.
+              © 2024 SMSDigi. All rights reserved. Built with ❤️ for modern businesses.
             </p>
           </div>
         </div>
