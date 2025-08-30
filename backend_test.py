@@ -131,9 +131,11 @@ class BackendTester:
     def test_newsletter_subscription(self):
         """Test POST /api/newsletter with email subscription"""
         try:
-            # Test data with realistic email
+            # Test data with realistic email - make it unique with timestamp
+            import time
+            timestamp = str(int(time.time()))
             newsletter_data = {
-                "email": "marketing.updates@businesscorp.com"
+                "email": f"marketing.updates.{timestamp}@businesscorp.com"
             }
             
             response = self.session.post(
