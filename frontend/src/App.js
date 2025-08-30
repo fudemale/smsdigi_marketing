@@ -329,7 +329,7 @@ function App() {
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">Pro</h3>
                   <p className="text-gray-600 mb-4">Ideal for growing businesses</p>
-                  <div className="text-4xl font-bold text-blue-600 mb-2">£99</div>
+                  <div className="text-4xl font-bold text-blue-600 mb-2">£80</div>
                   <div className="text-gray-500">per month</div>
                 </div>
                 
