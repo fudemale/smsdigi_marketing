@@ -78,7 +78,12 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 flex items-center">
+                <img 
+                  src="https://images.unsplash.com/photo-1613905383527-8994ba2f9896?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODd8MHwxfHNlYXJjaHwxfHxTTVMlMjBkaWdpdGFsJTIwbG9nb3xlbnwwfHx8fDE3NTY1ODEzMDB8MA&ixlib=rb-4.1.0&q=85" 
+                  alt="SMSDigi Logo"
+                  className="h-8 w-8 mr-3 rounded-lg"
+                />
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   SMSDigi
                 </h1>
