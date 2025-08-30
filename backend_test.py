@@ -169,7 +169,7 @@ class BackendTester:
     def test_duplicate_newsletter_subscription(self):
         """Test duplicate newsletter subscription handling"""
         try:
-            # Use the same email as previous test
+            # Use a known existing email for duplicate test
             newsletter_data = {
                 "email": "marketing.updates@businesscorp.com"
             }
