@@ -1,5 +1,6 @@
 fastapi==0.110.1
-uvicorn[standard]==0.25.0
+uvicorn==0.25.0            # note: no [standard]
 motor==3.3.1
-pydantic==2.6.4
+pydantic==2.8.2
+pydantic-core==2.20.1
 dnspython>=2.4.0
