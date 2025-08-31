@@ -1,6 +1,7 @@
 fastapi==0.110.1
-uvicorn==0.25.0            # note: no [standard]
+uvicorn==0.25.0          # no [standard]
 motor==3.3.1
+pymongo==4.6.3           # 👈 pin < 5 to match Motor 3.3.x
 pydantic==2.8.2
 pydantic-core==2.20.1
 dnspython>=2.4.0
